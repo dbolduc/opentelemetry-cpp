@@ -7,6 +7,8 @@
 #  include <thread>
 
 #  include "opentelemetry/detectors/gcp/resource_detector.h"
+#  include "opentelemetry/ext/http/client/http_client_factory.h"
+#  include "opentelemetry/sdk/resource/semantic_conventions.h"
 
 #  include <gtest/gtest.h>
 #  include "gmock/gmock.h"
@@ -19,6 +21,8 @@ namespace gcp
 namespace
 {
 
+namespace sc = opentelemetry::sdk::resource::SemanticConventions;
+
 template <typename T>
 ::testing::Matcher<std::pair<std::string, opentelemetry::sdk::common::OwnedAttributeValue>>
 Attribute(std::string const &key, ::testing::Matcher<T const &> matcher)
@@ -26,26 +30,15 @@ Attribute(std::string const &key, ::testing::Matcher<T const &> matcher)
   return ::testing::Pair(key, ::testing::VariantWith<T>(matcher));
 }
 
-TEST(QMS, DoItLiveOnce) {
-  using ::testing::IsEmpty;
-  auto client = ext::http::client::HttpClientFactory::CreateSync();
-  auto result = QmsOnce(client);
-  EXPECT_THAT(result.error, IsEmpty()) << result.error;
-}
-
-TEST(QMS, DoItLiveLoop) {
-  using ::testing::IsEmpty;
-  auto client = ext::http::client::HttpClientFactory::CreateSync();
-  auto result = RetryLoop(client, std::make_shared<DefaultRetry>());
-  EXPECT_THAT(result.error, IsEmpty()) << result.error;
-}
-
-TEST(GcpResourceDetector, IntTest)
+TEST(GcpResourceDetector, IntegrationTest)
 {
   using ::testing::AllOf;
   using ::testing::Contains;
-  auto detector  = GcpResourceDetector();
-  auto resource = detector.Detect();
+  auto client = ext::http::client::HttpClientFactory::CreateSync();
+  auto retry = internal::MakeDefaultRetry();
+
+  auto detector  = internal::MakeGcpDetector(client, retry);
+  auto resource = detector->Detect();
   auto attributes = resource.GetAttributes();
   EXPECT_THAT(attributes,
               AllOf(Contains(Attribute<std::string>(sc::kCloudProvider, "gcp")),

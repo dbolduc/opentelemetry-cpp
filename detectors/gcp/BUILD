@@ -11,6 +11,7 @@ cc_library(
     ],
     hdrs = [
         "include/opentelemetry/detectors/gcp/resource_detector.h",
+        "include/opentelemetry/detectors/gcp/resource_detector_options.h",
         "include/opentelemetry/detectors/gcp/internal/resource_detector_impl.h",
     ],
     copts = [
