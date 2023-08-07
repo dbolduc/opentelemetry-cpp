@@ -12,8 +12,16 @@ namespace detector
 namespace gcp
 {
 
+/**
+ * Configuration options for the GCP resource detector.
+ */
 struct GcpDetectorOptions
 {
+  /**
+   * The endpoint of the Google Compute Engine (GCE) [Metadata Server]
+   *
+   * [metadata server]: https://cloud.google.com/compute/docs/metadata/overview
+   */
   std::string endpoint = "http://metadata.google.internal";
 };
 

@@ -16,8 +16,11 @@ namespace detector
 {
 namespace gcp
 {
-// The internal namespace is for implementation details only. The symbols within are not part of the
-// public API. They are subject to change, including deletion, without notice.
+/**
+ * The internal namespace is for implementation details only. The symbols within
+ * are not part of the public API. They are subject to change, including
+ * deletion, without notice.
+ */
 namespace internal {
 
 // Interface to simplify testing. The default will sleep.

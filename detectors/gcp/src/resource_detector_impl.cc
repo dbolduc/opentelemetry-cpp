@@ -98,34 +98,68 @@ std::string UrlFromEndpoint(std::string endpoint)
 
 struct QmsResult
 {
+  std::string error;
+  bool retry = false;
   nlohmann::json json;  // used if error.empty()
-  std::string error = "Unknown error.";
-  bool retry        = false;
 };
 
 QmsResult QmsMapStatus(ext::http::client::StatusCode c)
 {
   QmsResult result;
-  // TODO : set retries as well.
-  if (c < 200 || c >= 300)
-  {
-    result.error = "HTTP code=" + std::to_string(c);
+  if (c >= 200 && c < 300) {
+    return result;
   }
-  // TODO : error is defaulted to bad, so clear it. A clearer interface might be in order.
-  result.error = "";
+
+  // 429 is "Too Many Requests".
+  result.retry = c < 200 || c == 429 || c >= 500;
+  result.error = "HTTP code=" + std::to_string(c);
   return result;
 }
 
-// TODO : consider adding interface to header for smaller tests? (would help reduce the size of PRs
-// too).
+std::string ToString(ext::http::client::SessionState state) {
+  switch (state) {
+    case ext::http::client::SessionState::CreateFailed:
+      return "CreateFailed";
+    case ext::http::client::SessionState::Created:
+      return "Created";
+    case ext::http::client::SessionState::Destroyed:
+      return "Destroyed";
+    case ext::http::client::SessionState::Connecting:
+      return "Connecting";
+    case ext::http::client::SessionState::ConnectFailed:
+      return "ConnectFailed";
+    case ext::http::client::SessionState::Connected:
+      return "Connected";
+    case ext::http::client::SessionState::Sending:
+      return "Sending";
+    case ext::http::client::SessionState::SendFailed:
+      return "SendFailed";
+    case ext::http::client::SessionState::Response:
+      return "Response";
+    case ext::http::client::SessionState::SSLHandshakeFailed:
+      return "SSLHandshakeFailed";
+    case ext::http::client::SessionState::TimedOut:
+      return "TimedOut";
+    case ext::http::client::SessionState::NetworkError:
+      return "NetworkError";
+    case ext::http::client::SessionState::ReadError:
+      return "ReadError";
+    case ext::http::client::SessionState::WriteError:
+      return "WriteError";
+    case ext::http::client::SessionState::Cancelled:
+      return "Cancelled";
+    default:
+      return "Unknown";
+  }
+}
+
 QmsResult QmsOnce(std::shared_ptr<HttpClientSync> client, std::string const& url)
 {
+  QmsResult r;
   auto result   = client->GetNoSsl(url, {{"Metadata-Flavor", "Google"}});
   if (!result)
   {
-    QmsResult r;
-    r.error =
-        "SessionState as int: " + std::to_string(static_cast<int>(result.GetSessionState()));
+    r.error = "SessionState: " + ToString(result.GetSessionState());
     r.retry = false;
     return r;
   }
@@ -137,7 +171,6 @@ QmsResult QmsOnce(std::shared_ptr<HttpClientSync> client, std::string const& url
   }
   if (!ValidateHeaders(response))
   {
-    QmsResult r;
     r.error = "response headers do not match expectations";
     r.retry   = true;
     return r;
@@ -145,18 +178,14 @@ QmsResult QmsOnce(std::shared_ptr<HttpClientSync> client, std::string const& url
   auto json = nlohmann::json::parse(response.GetBody(), nullptr, false);
   if (!ValidateJson(json))
   {
-    QmsResult r;
     r.error = "returned payload does not match expectation.";
     r.retry   = true;
     return r;
   }
-  QmsResult r;
   r.json = std::move(json);
-  r.error = "";
   return r;
 }
 
-// TODO : consider adding interface to header for smaller tests?
 QmsResult RetryLoop(std::shared_ptr<HttpClientSync> client,
                     std::shared_ptr<Retry> retry,
                     std::string const &url)
